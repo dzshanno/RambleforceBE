@@ -34,68 +34,55 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    created_by_id = Column(
-        Integer, ForeignKey("users.id"), nullable=True
-    )  # nullable for first admin
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     updated_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     # Self-referential relationships for audit
     created_by_user = relationship(
-        "User", remote_side=[id], foreign_keys=[created_by_id]
+        "User",
+        foreign_keys=[created_by_id],
+        remote_side=[id],
+        backref="users_created_by",
     )
     updated_by_user = relationship(
-        "User", remote_side=[id], foreign_keys=[updated_by_id]
-    )
-
-    # Reverse relationships for users created/updated by this user
-    users_created = relationship(
         "User",
-        back_populates="created_by_user",
-        foreign_keys=[created_by_id],
-        remote_side=[created_by_id],
-    )
-    users_updated = relationship(
-        "User",
-        back_populates="updated_by_user",
         foreign_keys=[updated_by_id],
-        remote_side=[updated_by_id],
+        remote_side=[id],
+        backref="users_updated_by",
     )
 
-    # Standard relationships
-    registrations = relationship("Registration", back_populates="user")
-    comments = relationship("Comment", back_populates="user")
-    orders = relationship("Order", back_populates="user")
+    # Standard relationships with explicit foreign keys
+    registrations = relationship(
+        "Registration",
+        back_populates="user",
+        foreign_keys="[Registration.user_id]",
+        overlaps="created_by_user,updated_by_user",
+    )
+    comments = relationship(
+        "Comment",
+        back_populates="user",
+        foreign_keys="[Comment.user_id]",
+        overlaps="created_by_user,updated_by_user",
+    )
+    orders = relationship(
+        "Order",
+        back_populates="user",
+        foreign_keys="[Order.user_id]",
+        overlaps="created_by_user,updated_by_user",
+    )
+
+    # Relationships for items created/updated by this user
     events_created = relationship(
-        "Event", back_populates="created_by_user", foreign_keys="Event.created_by_id"
+        "Event",
+        back_populates="created_by_user",
+        foreign_keys="[Event.created_by_id]",
+        overlaps="created_by_user,updated_by_user",
     )
     events_updated = relationship(
-        "Event", back_populates="updated_by_user", foreign_keys="Event.updated_by_id"
-    )
-
-
-class Event(Base):
-    __tablename__ = "events"
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String)
-    description = Column(Text)
-    date = Column(DateTime)
-    location = Column(String)
-    capacity = Column(Integer)
-    price = Column(Float)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    created_by_id = Column(Integer, ForeignKey("users.id"))
-    updated_by_id = Column(Integer, ForeignKey("users.id"))
-
-    # Relationships
-    registrations = relationship("Registration", back_populates="event")
-    photos = relationship("Photo", back_populates="event")
-    created_by_user = relationship(
-        "User", back_populates="events_created", foreign_keys=[created_by_id]
-    )
-    updated_by_user = relationship(
-        "User", back_populates="events_updated", foreign_keys=[updated_by_id]
+        "Event",
+        back_populates="updated_by_user",
+        foreign_keys="[Event.updated_by_id]",
+        overlaps="created_by_user,updated_by_user",
     )
 
 
@@ -113,11 +100,37 @@ class Registration(Base):
     created_by_id = Column(Integer, ForeignKey("users.id"))
     updated_by_id = Column(Integer, ForeignKey("users.id"))
 
-    # Relationships
-    user = relationship("User", back_populates="registrations")
+    # Relationships with explicit foreign keys
+    user = relationship("User", foreign_keys=[user_id], back_populates="registrations")
     event = relationship("Event", back_populates="registrations")
     created_by_user = relationship("User", foreign_keys=[created_by_id])
     updated_by_user = relationship("User", foreign_keys=[updated_by_id])
+
+
+class Event(Base):
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    description = Column(Text)
+    date = Column(DateTime)
+    location = Column(String)
+    capacity = Column(Integer)
+    price = Column(Float)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_by_id = Column(Integer, ForeignKey("users.id"))
+    updated_by_id = Column(Integer, ForeignKey("users.id"))
+
+    # Relationships with explicit foreign keys
+    created_by_user = relationship(
+        "User", foreign_keys=[created_by_id], back_populates="events_created"
+    )
+    updated_by_user = relationship(
+        "User", foreign_keys=[updated_by_id], back_populates="events_updated"
+    )
+    registrations = relationship("Registration", back_populates="event")
+    photos = relationship("Photo", back_populates="event")
 
 
 class Merchandise(Base):
@@ -135,9 +148,9 @@ class Merchandise(Base):
     updated_by_id = Column(Integer, ForeignKey("users.id"))
 
     # Relationships
+    order_items = relationship("OrderItem", back_populates="merchandise")
     created_by_user = relationship("User", foreign_keys=[created_by_id])
     updated_by_user = relationship("User", foreign_keys=[updated_by_id])
-    order_items = relationship("OrderItem", back_populates="merchandise")
 
 
 class Order(Base):
@@ -153,11 +166,15 @@ class Order(Base):
     created_by_id = Column(Integer, ForeignKey("users.id"))
     updated_by_id = Column(Integer, ForeignKey("users.id"))
 
-    # Relationships
-    user = relationship("User", back_populates="orders")
+    # Relationships with explicit foreign keys
+    user = relationship("User", foreign_keys=[user_id], back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
-    created_by_user = relationship("User", foreign_keys=[created_by_id])
-    updated_by_user = relationship("User", foreign_keys=[updated_by_id])
+    created_by_user = relationship(
+        "User", foreign_keys=[created_by_id], overlaps="user,updated_by_user"
+    )
+    updated_by_user = relationship(
+        "User", foreign_keys=[updated_by_id], overlaps="user,created_by_user"
+    )
 
 
 class OrderItem(Base):
