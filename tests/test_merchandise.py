@@ -1,0 +1,1 @@
+# Contains tests for merchandise-related functionality

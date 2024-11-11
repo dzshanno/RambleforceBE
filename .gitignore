@@ -1,0 +1,21 @@
+# File specifying files and directories to be ignored by Git
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python virtual environment
+venv/
+env/
+RFenv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
