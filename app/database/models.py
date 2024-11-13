@@ -105,6 +105,7 @@ class Registration(Base):
     event = relationship("Event", back_populates="registrations")
     created_by_user = relationship("User", foreign_keys=[created_by_id])
     updated_by_user = relationship("User", foreign_keys=[updated_by_id])
+    payment = relationship("Payment", back_populates="registration", uselist=False)
 
 
 class Event(Base):
@@ -175,6 +176,7 @@ class Order(Base):
     updated_by_user = relationship(
         "User", foreign_keys=[updated_by_id], overlaps="user,created_by_user"
     )
+    payment = relationship("Payment", back_populates="order", uselist=False)
 
 
 class OrderItem(Base):

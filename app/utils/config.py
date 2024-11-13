@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     WHATSAPP_API_KEY: Optional[str] = None
     WHATSAPP_PHONE_NUMBER: Optional[str] = None
 
+    # STRIPE settings
+    STRIPE_SECRET_KEY: str = "your_stripe_secret_key"
+    STRIPE_WEBHOOK_SECRET: str = "your_stripe_webhook_secret"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
