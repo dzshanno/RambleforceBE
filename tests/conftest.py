@@ -52,6 +52,18 @@ TEST_USERS = {
 }
 
 
+def pytest_configure(config):
+    """Configure custom pytest settings"""
+    # Add custom markers
+    markers = [
+        "asyncio: mark test as async",
+        "anthropic: mark test as using real Anthropic API",
+        "integration: mark test as integration test",
+    ]
+    for marker in markers:
+        config.addinivalue_line("markers", marker)
+
+
 def clear_database(db_session):
     """Clear all data from database tables"""
     logger.info("Clearing database tables")
@@ -62,7 +74,7 @@ def clear_database(db_session):
     db_session.commit()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def create_test_database():
     """Create test database"""
     logger.info(f"Creating test database: {DB_NAME}")
@@ -121,15 +133,16 @@ def create_test_database():
     postgres_engine.dispose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def event_loop():
     """Create an instance of the default event loop for each test case."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
     yield loop
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def test_engine(create_test_database):
     """Get test database engine"""
     return create_test_database

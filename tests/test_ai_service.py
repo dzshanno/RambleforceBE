@@ -96,7 +96,7 @@ def test_database_state(mock_anthropic_client, test_users, db_session):
     logger.debug(f"Active: {regular_user.is_active}")
 
     # Verify the user exists in a fresh query
-    db_user = db_session.query(User).get(regular_user.id)
+    db_user = db_session.get(User, regular_user.id)
     assert db_user is not None, f"Could not find user with ID {regular_user.id}"
 
 
