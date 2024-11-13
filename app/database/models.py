@@ -253,3 +253,28 @@ class AIQuestion(Base):
     user = relationship("User", foreign_keys=[user_id])
     created_by_user = relationship("User", foreign_keys=[created_by_id])
     updated_by_user = relationship("User", foreign_keys=[updated_by_id])
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    stripe_payment_intent_id = Column(String, unique=True, index=True)
+    amount = Column(Integer)  # Amount in cents
+    currency = Column(String)
+    status = Column(String)  # pending, succeeded, failed
+    payment_type = Column(String)  # event_registration, merchandise
+    user_id = Column(Integer, ForeignKey("users.id"))
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    registration_id = Column(Integer, ForeignKey("registrations.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_by_id = Column(Integer, ForeignKey("users.id"))
+    updated_by_id = Column(Integer, ForeignKey("users.id"))
+
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    order = relationship("Order", back_populates="payment")
+    registration = relationship("Registration", back_populates="payment")
+    created_by_user = relationship("User", foreign_keys=[created_by_id])
+    updated_by_user = relationship("User", foreign_keys=[updated_by_id])
