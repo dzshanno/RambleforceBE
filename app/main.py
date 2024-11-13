@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, attendees, merchandise, events, comments
+from app.routers import auth, attendees, merchandise, events, comments, ai_questions
 from app.database.session import engine
 from app.database.models import Base
 from app.utils.config import Settings
@@ -31,6 +31,7 @@ app.include_router(
 )
 app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
 app.include_router(comments.router, prefix="/api/v1/comments", tags=["comments"])
+app.include_router(ai_questions.router, prefix="/api/v1/ai", tags=["ai"])
 
 
 @app.get("/")

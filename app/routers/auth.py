@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Form
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.utils.auth import (
@@ -9,6 +9,8 @@ from app.utils.auth import (
     create_access_token,
     get_password_hash,
     get_current_active_user,
+    get_current_active_user_or_none,
+    get_current_user_optional,
     OAuth2PasswordBearerOptional,
 )
 from app.schemas.auth import Token, UserCreate, User, UserLogin
@@ -22,40 +24,6 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Add this to handle optional token authentication
-oauth2_scheme_optional = OAuth2PasswordBearerOptional(tokenUrl="api/v1/auth/token")
-
-
-# Add this to auth.py utility functions
-async def get_current_user_optional(
-    db: Session = Depends(get_db),
-    token: Optional[str] = Depends(oauth2_scheme_optional),
-) -> Optional[UserModel]:
-    if not token:
-        return None
-
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        email: str = payload.get("sub")
-        if email is None:
-            return None
-    except JWTError:
-        return None
-
-    user = db.query(UserModel).filter(UserModel.email == email).first()
-    return user
-
-
-# Add this dependency to handle optional authentication
-async def get_current_active_user_or_none(
-    current_user: Optional[UserModel] = Depends(get_current_user_optional),
-) -> Optional[UserModel]:
-    if current_user and not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
 
 
 @router.post("/signup", response_model=User)

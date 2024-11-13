@@ -9,8 +9,28 @@ from app.database.session import get_db
 from app.utils.config import settings
 from app.database.models import User
 
+
+class OAuth2PasswordBearerOptional(OAuth2PasswordBearer):
+    def __init__(
+        self,
+        tokenUrl: str,
+        scheme_name: Optional[str] = None,
+        scopes: Optional[dict] = None,
+        description: Optional[str] = None,
+        auto_error: bool = True,
+    ):
+        super().__init__(
+            tokenUrl=tokenUrl,
+            scheme_name=scheme_name,
+            scopes=scopes,
+            description=description,
+            auto_error=False,
+        )
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
+oauth2_scheme_optional = OAuth2PasswordBearerOptional(tokenUrl="api/v1/auth/token")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -66,9 +86,30 @@ async def get_current_active_user(
     return current_user
 
 
-class OAuth2PasswordBearerOptional(OAuth2PasswordBearer):
-    async def __call__(self, request: Request) -> Optional[str]:
-        try:
-            return await super().__call__(request)
-        except:
+async def get_current_user_optional(
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+) -> Optional[User]:
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        email: str = payload.get("sub")
+        if email is None:
             return None
+    except JWTError:
+        return None
+
+    user = db.query(User).filter(User.email == email).first()
+    return user
+
+
+async def get_current_active_user_or_none(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+) -> Optional[User]:
+    if current_user and not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user

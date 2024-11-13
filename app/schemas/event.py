@@ -1,9 +1,10 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from .base import BaseSchema
 
 
-class EventBase(BaseModel):
+class EventBase(BaseSchema):
+    """Base Event schema with common attributes"""
+
     title: str
     description: str
     date: datetime
@@ -13,18 +14,19 @@ class EventBase(BaseModel):
 
 
 class EventCreate(EventBase):
+    """Schema for creating a new event"""
+
     pass
 
 
 class Event(EventBase):
+    """Schema for event with database fields"""
+
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True  # This enables ORM model -> Pydantic model conversion
-
 
 class EventResponse(Event):
-    class Config:
-        from_attributes = True
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    """Schema for event responses"""
+
+    pass
