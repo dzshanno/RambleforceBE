@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from app.utils.ai_service import AIService
 from app.utils.logging_config import setup_logging
-from app.database.models import User, AIQuestion  # Add AIQuestion import
+from app.database.models import User, AIQuestion
 from sqlalchemy.orm import Session
 
 logger = setup_logging()
@@ -26,8 +26,7 @@ def mock_anthropic_client():
     return client
 
 
-@pytest.mark.asyncio
-async def test_get_answer_with_user(mock_anthropic_client, test_users, db_session):
+def test_get_answer_with_user(mock_anthropic_client, test_users, db_session):
     # First, let's verify what users exist in the database
     all_users = db_session.query(User).all()
     logger.debug("All users in database:")
@@ -41,37 +40,45 @@ async def test_get_answer_with_user(mock_anthropic_client, test_users, db_sessio
     )
 
     service = AIService(client=mock_anthropic_client)
-    answer = await service.get_answer(
+    answer = service.get_answer(
         "Test question?", db=db_session, user_id=regular_user.id
     )
     assert answer == "Mocked AI response"
 
+    # Verify the mock was called correctly
+    mock_anthropic_client.messages.create.assert_called_once()
+    call_args = mock_anthropic_client.messages.create.call_args[1]
+    assert "Test question?" in str(call_args["messages"])
+
     # Verify the database entry
-    question = db_session.query(AIQuestion).first()
-    assert question is not None
+    db_question = db_session.query(AIQuestion).first()
+    assert db_question is not None
     assert (
-        question.user_id == regular_user.id
-    ), f"Question user_id {question.user_id} doesn't match test user id {regular_user.id}"
-    assert question.question == "Test question?"
-    assert question.answer == "Mocked AI response"
+        db_question.user_id == regular_user.id
+    ), f"Question user_id {db_question.user_id} doesn't match test user id {regular_user.id}"
+    assert db_question.question == "Test question?"
+    assert db_question.answer == "Mocked AI response"
 
 
-@pytest.mark.asyncio
-async def test_get_answer_without_user(mock_anthropic_client, db_session):
+def test_get_answer_without_user(mock_anthropic_client, db_session):
     service = AIService(client=mock_anthropic_client)
-    answer = await service.get_answer("Test question?", db=db_session, user_id=None)
+    answer = service.get_answer("Test question?", db=db_session, user_id=None)
     assert answer == "Mocked AI response"
 
+    # Verify the mock was called correctly
+    mock_anthropic_client.messages.create.assert_called_once()
+    call_args = mock_anthropic_client.messages.create.call_args[1]
+    assert "Test question?" in str(call_args["messages"])
+
     # Verify the database entry
-    question = db_session.query(AIQuestion).first()
-    assert question is not None
-    assert question.user_id is None
-    assert question.question == "Test question?"
-    assert question.answer == "Mocked AI response"
+    db_question = db_session.query(AIQuestion).first()
+    assert db_question is not None
+    assert db_question.user_id is None
+    assert db_question.question == "Test question?"
+    assert db_question.answer == "Mocked AI response"
 
 
-@pytest.mark.asyncio
-async def test_database_state(mock_anthropic_client, test_users, db_session):
+def test_database_state(mock_anthropic_client, test_users, db_session):
     """Debug test to examine database state"""
     # Check Users table
     all_users = db_session.query(User).all()
@@ -91,3 +98,19 @@ async def test_database_state(mock_anthropic_client, test_users, db_session):
     # Verify the user exists in a fresh query
     db_user = db_session.query(User).get(regular_user.id)
     assert db_user is not None, f"Could not find user with ID {regular_user.id}"
+
+
+def test_ai_service_error(mock_anthropic_client, db_session):
+    # Configure mock to raise an exception
+    mock_anthropic_client.messages.create.side_effect = Exception("AI Service Error")
+
+    service = AIService(client=mock_anthropic_client)
+
+    with pytest.raises(Exception) as exc_info:
+        service.get_answer("Test question?", db=db_session, user_id=None)
+
+    assert "AI Service Error" in str(exc_info.value)
+
+    # Verify no question was saved in the database
+    db_question = db_session.query(AIQuestion).first()
+    assert db_question is None

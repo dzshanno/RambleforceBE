@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # Anthropic settings
     ANTHROPIC_API_KEY: str
+    ANTHROPIC_MODEL: str = "gpt-3.5-turbo"
 
     # WhatsApp settings
     WHATSAPP_API_KEY: Optional[str] = None

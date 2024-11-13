@@ -7,8 +7,8 @@ from app.database.models import AIQuestion, User
 from app.schemas.ai_question import AIQuestionCreate, AIQuestionResponse, AIQuestionInDB
 from app.utils.auth import get_current_active_user_or_none
 from app.utils.ai_service import AIService
-from app.utils.config import settings
 from app.utils.logging_config import setup_logging
+from datetime import datetime, timezone
 
 # Set up logging
 logger = setup_logging()
@@ -16,13 +16,13 @@ logger = setup_logging()
 router = APIRouter()
 
 
-# Create AIService as a dependency
+# Make AI service injectable for testing
 def get_ai_service():
     return AIService()
 
 
 @router.post("/ask", response_model=AIQuestionResponse)
-async def create_ai_question(
+def create_ai_question(
     question: AIQuestionCreate,
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_active_user_or_none),
@@ -30,25 +30,37 @@ async def create_ai_question(
 ):
     """Create a new AI question and get response"""
     try:
-        # Pass the database session to get_answer
-        answer = await ai_service.get_answer(
+        # Use the injected AI service
+        answer = ai_service.get_answer(
             question.question, db=db, user_id=current_user.id if current_user else None
+        )
+
+        # Fetch the saved question from the database to get all fields
+        db_question = (
+            db.query(AIQuestion)
+            .filter(AIQuestion.question == question.question)
+            .order_by(AIQuestion.created_at.desc())
+            .first()
         )
 
         return AIQuestionResponse(
             question=question.question,
             answer=answer,
             user_id=current_user.id if current_user else None,
+            created_at=(
+                db_question.created_at if db_question else datetime.now(timezone.utc)
+            ),
         )
 
     except Exception as e:
+        logger.error(f"Error in AI service: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Error getting AI response: {str(e)}"
         )
 
 
 @router.get("/questions", response_model=List[AIQuestionInDB])
-async def get_ai_questions(
+def get_ai_questions(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_db),
@@ -72,7 +84,7 @@ async def get_ai_questions(
 
 
 @router.get("/my-questions", response_model=List[AIQuestionInDB])
-async def get_user_ai_questions(
+def get_user_ai_questions(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_db),

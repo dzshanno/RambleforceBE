@@ -23,12 +23,27 @@ class AIService:
         - Accommodation sharing options available
         """
 
-    async def get_answer(
+    def get_answer(
         self, question: str, db: Session, user_id: Optional[int] = None
     ) -> str:
+        """
+        Get answer from AI service and save to database
+
+        Args:
+            question: The question to ask
+            db: Database session
+            user_id: Optional user ID for tracking who asked the question
+
+        Returns:
+            str: The AI's response
+
+        Raises:
+            Exception: If there is an error getting the response or saving to database
+        """
         try:
+            logger.info(f"Getting AI response for question: {question}")
             message = self.client.messages.create(
-                model="claude-3-opus-20240229",
+                model=settings.ANTHROPIC_MODEL,  # Use from settings for consistency
                 max_tokens=1000,
                 messages=[
                     {
@@ -50,9 +65,12 @@ class AIService:
             )
             db.add(ai_question)
             db.commit()
+            db.refresh(ai_question)  # Refresh to get the complete object
 
+            logger.info("Successfully saved AI question and response")
             return answer
 
         except Exception as e:
-            logger.error(f"AI Service error: {str(e)}")
-            raise Exception(f"AI Service error: {str(e)}")
+            logger.error(f"Error in AI service: {str(e)}")
+            db.rollback()  # Rollback transaction on error
+            raise  # Re-raise the original exception with full context
